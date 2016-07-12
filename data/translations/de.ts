@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="de">
+<TS version="2.1" language="de">
 <context>
     <name>TextConstants</name>
     <message>
         <source>Welcome to %1</source>
-        <translation>Willkommen zu %1</translation>
+        <translation>Willkommen auf %1</translation>
     </message>
     <message>
         <source>Warning, Caps Lock is ON!</source>
-        <translation>Achtung, dauerhafte Großschreibung ist aktiviert!</translation>
+        <translation>Achtung, Feststelltaste ist aktiviert!</translation>
     </message>
     <message>
         <source>Layout</source>
@@ -53,7 +53,7 @@
     </message>
     <message>
         <source>Select your user and enter password</source>
-        <translation>Benutzername auswählen und Passwort eingeben</translation>
+        <translation>Benutzer auswählen und Passwort eingeben</translation>
     </message>
 </context>
 </TS>

@@ -6,7 +6,7 @@
 sddm display manager configuration
 ----------------------------------
 
-:Date: August 2014
+:Date: August 2015
 :Version: sddm @SDDM_VERSION_STRING@
 :Manual section: 5
 :Manual group: sddm
@@ -20,6 +20,7 @@ DESCRIPTION
 ===========
 
 This file configures various parameters of the sddm display manager **sddm**\(1\).
+If this file is not available, default values are used.
 
 OPTIONS
 =======
@@ -40,6 +41,14 @@ OPTIONS
 	If property is set to `none`, numlock won't be changed.
 	Default value is "none".
 
+`InputMethod=`
+        Set the Qt input method for the greeter.
+        Tablet users with Qt Virtual Keyboard installed can set this
+        to "qtvirtualkeyboard" for the on-screen keyboard.
+        Other known values are "ibus" for the Intelligent Input Bus,
+        or "compose" for dead keys support.
+        Leave this empty if unsure.
+
 [Theme] section:
 
 `ThemeDir=`
@@ -59,11 +68,26 @@ OPTIONS
 	Name of the cursor theme to be set before starting
 	the display server.
 
-[XDisplay] section:
+`EnableAvatars=`
+	When enabled, home directories are searched for ".face.icon" images to
+	display as their avatars. This can be slow on some file systems.
+	When disabled, all avatars will be default. Themes may choose to hide
+	them altogether.
+	Default value is true.
+
+[X11] section:
 
 `ServerPath=`
 	Path of the X server.
 	Default value is "/usr/bin/X".
+
+`ServerArguments=`
+	Arguments to the X server.
+	Default value is "-nolisten tcp".
+
+`XephyrPath=`
+	Path of the Xephyr.
+	Default value is "/usr/bin/Xephyr".
 
 `XauthPath=`
 	Path of the Xauth.
@@ -77,15 +101,41 @@ OPTIONS
 	Path of script to execute when starting the desktop session.
 	Default value is "@SESSION_COMMAND@".
 
+`SessionLogFile=`
+        Path to the user session log file, relative to the home directory.
+        Default value is ".cache/xsession-errors".
+
+`UserAuthFile=`
+        Path to the Xauthority file, relative to the home directory.
+        Default value is ".Xauthority".
+
 `DisplayCommand=`
 	Path of script to execute when starting the display server.
 	Default value is "@DATA_INSTALL_DIR@/scripts/Xsetup".
+
+`DisplayStopCommand=`
+	Path of script to execute when stopping the display server.
+	Default value is "@DATA_INSTALL_DIR@/scripts/Xstop".
 
 `MinimumVT=`
 	Minimum virtual terminal number that will be used
 	by the first display. Virtual terminal number will
 	increase as new displays added.
 	Default value is @MINIMUM_VT@.
+
+[Wayland] section:
+
+`SessionDir=`
+	Path of the directory containing session files.
+	Default value is "/usr/share/wayland-sessions".
+
+`SessionCommand=`
+	Path of script to execute when starting the desktop session.
+	Default value is "@WAYLAND_SESSION_COMMAND@".
+
+`SessionLogFile=`
+        Path to the user session log file, relative to the home directory.
+        Default value is ".cache/wayland-errors".
 
 [Users] section:
 
@@ -96,33 +146,33 @@ OPTIONS
 `MinimumUid=`
 	Minimum user id of the users to be listed in the
 	user interface.
-	Default value is 1000.
+	Default value is @UID_MIN@.
 
 `MaximumUid=`
 	Maximum user id of the users to be listed in the
 	user interface.
-	Default value is 65000.
+	Default value is @UID_MAX@
 
 `HideUsers=`
-	Comma-separated list of users that shouldn't show up in
+	Comma-separated list of Users that shouldn't show up in the user list.
 	the user list.
 	Default value is empty.
 
 `HideShells=`
-	Comma-separated list of shells of users that shouldn't
+	Comma-separated list of Shells of users that shouldn't show up in the user list.
 	show up in the user list.
 	Default value is empty.
 
 `RememberLastUser=`
 	If this flag is true, LastUser value will updated
-	on every successfull login, if false last user value
-	wont be updated.
+	on every successful login, if false last user value
+	won't be updated.
 	Default value is true.
 
 `RememberLastSession=`
 	If this flag is true, LastSession value will updated
-	on every successfull login, if false last session value
-	wont be updated.
+	on every successful login, if false last session value
+	won't be updated.
 	Default value is true.
 
 [Autologin] section:

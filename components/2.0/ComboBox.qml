@@ -36,6 +36,7 @@ FocusScope {
     property font font
     property alias model: listView.model
     property int index: 0
+    property alias arrowColor: arrow.color
     property alias arrowIcon: arrowIcon.source
 
     property Component rowDelegate: defaultRowDelegate
@@ -46,8 +47,9 @@ FocusScope {
         id: defaultRowDelegate
         Text {
             anchors.fill: parent
-            anchors.margins: 4
+            anchors.margins: 4 + (LayoutMirroring.enabled ? arrow.width : 0)
             verticalAlignment: Text.AlignVCenter
+            color: container.textColor
             font: container.font
 
             text: parent.modelItem.name

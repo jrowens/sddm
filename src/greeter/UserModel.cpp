@@ -33,10 +33,11 @@
 namespace SDDM {
     class User {
     public:
-        QString name { "" };
-        QString realName { "" };
-        QString homeDir { "" };
-        QString icon { "" };
+        QString name;
+        QString realName;
+        QString homeDir;
+        QString icon;
+        bool needsPassword { false };
         int uid { 0 };
         int gid { 0 };
     };
@@ -50,41 +51,40 @@ namespace SDDM {
     };
 
     UserModel::UserModel(QObject *parent) : QAbstractListModel(parent), d(new UserModelPrivate()) {
+        const QString facesDir = mainConfig.Theme.FacesDir.get();
+        const QString defaultFace = QStringLiteral("%1/.face.icon").arg(facesDir);
+
         struct passwd *current_pw;
         while ((current_pw = getpwent()) != nullptr) {
 
             // skip entries with uids smaller than minimum uid
-            if ( int(current_pw->pw_uid) < mainConfig.Users.MinimumUid.get())
+            if (int(current_pw->pw_uid) < mainConfig.Users.MinimumUid.get())
                 continue;
 
             // skip entries with uids greater than maximum uid
-            if ( int(current_pw->pw_uid) > mainConfig.Users.MaximumUid.get())
+            if (int(current_pw->pw_uid) > mainConfig.Users.MaximumUid.get())
                 continue;
             // skip entries with user names in the hide users list
-            if (mainConfig.Users.HideUsers.get().contains(current_pw->pw_name))
+            if (mainConfig.Users.HideUsers.get().contains(QString::fromLocal8Bit(current_pw->pw_name)))
                 continue;
 
             // skip entries with shells in the hide shells list
-            if (mainConfig.Users.HideShells.get().contains(current_pw->pw_shell))
+            if (mainConfig.Users.HideShells.get().contains(QString::fromLocal8Bit(current_pw->pw_shell)))
                 continue;
 
             // create user
             UserPtr user { new User() };
-            user->name = QString(current_pw->pw_name);
-            user->realName = QString::fromUtf8(current_pw->pw_gecos).split(",").first();
-            user->homeDir = QString(current_pw->pw_dir);
+            user->name = QString::fromLocal8Bit(current_pw->pw_name);
+            user->realName = QString::fromLocal8Bit(current_pw->pw_gecos).split(QLatin1Char(',')).first();
+            user->homeDir = QString::fromLocal8Bit(current_pw->pw_dir);
             user->uid = int(current_pw->pw_uid);
             user->gid = int(current_pw->pw_gid);
+            // if shadow is used pw_passwd will be 'x' nevertheless, so this
+            // will always be true
+            user->needsPassword = strcmp(current_pw->pw_passwd, "") != 0;
 
             // search for face icon
-            QString userFace = QString("%1/.face.icon").arg(user->homeDir);
-            QString systemFace = QString("%1/%2.face.icon").arg(mainConfig.Theme.FacesDir.get()).arg(user->name);
-            if (QFile::exists(userFace))
-                user->icon = userFace;
-            else if (QFile::exists(systemFace))
-                user->icon = systemFace;
-            else
-                user->icon = QString("%1/default.face.icon").arg(mainConfig.Theme.FacesDir.get());
+            user->icon = defaultFace;
 
             // add user
             d->users << user;
@@ -95,10 +95,26 @@ namespace SDDM {
         // sort users by username
         std::sort(d->users.begin(), d->users.end(), [&](const UserPtr &u1, const UserPtr &u2) { return u1->name < u2->name; });
 
+        bool avatarsEnabled = mainConfig.Theme.EnableAvatars.get();
+        if (avatarsEnabled && mainConfig.Theme.EnableAvatars.isDefault()) {
+            if (d->users.count() > mainConfig.Theme.DisableAvatarsThreshold.get()) avatarsEnabled=false;
+        }
+
         // find out index of the last user
         for (int i = 0; i < d->users.size(); ++i) {
-            if (d->users.at(i)->name == stateConfig.Last.User.get())
+            UserPtr user { d->users.at(i) };
+            if (user->name == stateConfig.Last.User.get())
                 d->lastIndex = i;
+
+            if (avatarsEnabled) {
+                const QString userFace = QStringLiteral("%1/.face.icon").arg(user->homeDir);
+                const QString systemFace = QStringLiteral("%1/%2.face.icon").arg(facesDir).arg(user->name);
+
+                if (QFile::exists(userFace))
+                    user->icon = userFace;
+                else if (QFile::exists(systemFace))
+                    user->icon = systemFace;
+            }
         }
     }
 
@@ -109,10 +125,11 @@ namespace SDDM {
     QHash<int, QByteArray> UserModel::roleNames() const {
         // set role names
         QHash<int, QByteArray> roleNames;
-        roleNames[NameRole] = "name";
-        roleNames[RealNameRole] = "realName";
-        roleNames[HomeDirRole] = "homeDir";
-        roleNames[IconRole] = "icon";
+        roleNames[NameRole] = QByteArrayLiteral("name");
+        roleNames[RealNameRole] = QByteArrayLiteral("realName");
+        roleNames[HomeDirRole] = QByteArrayLiteral("homeDir");
+        roleNames[IconRole] = QByteArrayLiteral("icon");
+        roleNames[NeedsPasswordRole] = QByteArrayLiteral("needsPassword");
 
         return roleNames;
     }
@@ -145,8 +162,14 @@ namespace SDDM {
             return user->homeDir;
         else if (role == IconRole)
             return user->icon;
+        else if (role == NeedsPasswordRole)
+            return user->needsPassword;
 
         // return empty value
         return QVariant();
+    }
+
+    int UserModel::disableAvatarsThreshold() const {
+        return mainConfig.Theme.DisableAvatarsThreshold.get();
     }
 }

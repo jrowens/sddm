@@ -30,6 +30,9 @@ Rectangle {
     width: 640
     height: 480
 
+    LayoutMirroring.enabled: Qt.locale().textDirection == Qt.RightToLeft
+    LayoutMirroring.childrenInherit: true
+
     TextConstants { id: textConstants }
 
     Connections {
@@ -40,24 +43,21 @@ Rectangle {
         }
     }
 
-    Repeater {
-        model: screenModel
-        Background {
-            x: geometry.x; y: geometry.y; width: geometry.width; height:geometry.height
-            source: config.background
-            fillMode: Image.PreserveAspectCrop
-            onStatusChanged: {
-                if (status == Image.Error && source != config.defaultBackground) {
-                    source = config.defaultBackground
-                }
+    Background {
+        anchors.fill: parent
+        source: config.background
+        fillMode: Image.PreserveAspectCrop
+        onStatusChanged: {
+            if (status == Image.Error && source != config.defaultBackground) {
+                source = config.defaultBackground
             }
         }
     }
 
     Rectangle {
-        property variant geometry: screenModel.geometry(screenModel.primary)
-        x: geometry.x; y: geometry.y; width: geometry.width; height: geometry.height
+        anchors.fill: parent
         color: "transparent"
+        //visible: primaryScreen
 
         Rectangle {
             width: 416; height: 262
@@ -163,14 +163,6 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
 
                         spacing: 8
-
-                        ImageButton {
-                            id: session_button
-                            source: "images/session_normal.png"
-                            onClicked: if (menu_session.state === "visible") menu_session.state = ""; else menu_session.state = "visible"
-
-                            KeyNavigation.backtab: login_button; KeyNavigation.tab: system_button
-                        }
 
                         ImageButton {
                             id: system_button

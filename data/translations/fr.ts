@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.0" language="fr">
+<TS version="2.1" language="fr">
 <context>
     <name>TextConstants</name>
     <message>
@@ -21,7 +21,7 @@
     </message>
     <message>
         <source>Login failed</source>
-        <translation>Échec de l'identification</translation>
+        <translation>Échec de l&apos;identification</translation>
     </message>
     <message>
         <source>Login succeeded</source>

@@ -1,4 +1,5 @@
 /***************************************************************************
+* Copyright (c) 2015-2016 Pier Luigi Fiorini <pierluigi.fiorini@gmail.com>
 * Copyright (c) 2013 Nikita Mikhaylov <nslqqq@gmail.com>
 *
 * This program is free software; you can redistribute it and/or modify
@@ -21,6 +22,7 @@
 #define GREETERAPP_H
 
 #include <QGuiApplication>
+#include <QScreen>
 #include <QQuickView>
 
 class QTranslator;
@@ -30,7 +32,6 @@ namespace SDDM {
     class ThemeMetadata;
     class ThemeConfig;
     class SessionModel;
-    class ScreenModel;
     class ScreenModel;
     class UserModel;
     class GreeterProxy;
@@ -47,22 +48,25 @@ namespace SDDM {
         static GreeterApp *instance() { return self; }
 
     private slots:
-        void show();
+        void addViewForScreen(QScreen *screen);
+        void removeViewForScreen(QQuickView *view);
 
     private:
         static GreeterApp *self;
 
-        QQuickView *m_view { nullptr };
+        QList<QQuickView *> m_views;
         QTranslator *m_theme_translator { nullptr },
                     *m_components_tranlator { nullptr };
 
+        QString m_themePath;
         ThemeMetadata *m_metadata { nullptr };
         ThemeConfig *m_themeConfig { nullptr };
         SessionModel *m_sessionModel { nullptr };
-        ScreenModel *m_screenModel { nullptr  };
         UserModel *m_userModel { nullptr };
         GreeterProxy *m_proxy { nullptr };
         KeyboardModel *m_keyboard { nullptr };
+
+        void activatePrimary();
     };
 }
 

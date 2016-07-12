@@ -4,6 +4,66 @@
     - Bug fixes
     * Others
 
+## 0.14.0 - XXXX-XX-XX
+----------------------
+    + New sddm.conf option EnableAvatars (useful for slow filesystems)
+    + New sddm.conf option UserAuthFile on the XDisplay section
+      to change the default Xauthority file name and path.
+    + New sddm.conf option SessionLogFile on XDisplay and WaylandDisplay
+      sections to change the default user session log location.
+    + ComboBox now exposes the arrow background color as
+      "arrowColor" property.
+    * More theme-neutral default user and root avatars
+    * REMOVED the "circles" theme. Remember to change it if you had it set!
+    * Update Estonian translation.
+    * Add Dutch translation from Eric Hameleers.
+
+
+## 0.13.0 - 2015-11-04
+----------------------
+    + Greeter inherits path environment variables from parent so that
+      themes installed in non-standard paths will work.
+    + Add ENABLE_PAM option to toggle PAM support at build time.
+    + Allow overriding textColor in ComboBox.
+    - Don't cast QByteArray to (char *).
+    - Disable greeters from loading KDE's debug hander
+      (fix CVE-2015-0856).
+    - Fix multi-screen support for some setups.
+    * Added Serbian translation.
+    * Added Traditional Chinese translation.
+    * Improved German translation.
+    * Remove failsafe session entry.
+    * Close the pipe fd passed to X server.
+    * A few micro-optimizations.
+
+## 0.12.0 - 2015-09-05
+----------------------
+    * Add a new "platformTheme" setting for themes.
+      Themes can now specify a Qt platform theme plugin.
+    * Autodetect UID_MIN and UID_MAX from /etc/login.defs
+    * Add Arabic translation by Safa Alfulaij.
+    * Add Hungarian translation by mortein79.
+    * Russian translation improvements by Alexander Potashev.
+    * Wait for display setup script to finish.
+    * Reload configuration after display setup.
+    * Pass locale environment variables to the greeter.
+    * Support right-to-left languages.
+    * Wayland session support.
+    * Xorg server arguments are configurable.
+    * Honor locale settings in /etc/environment
+    * Allow SYSTEMD_SYSTEM_UNIT_DIR to be overridden at compile time.
+    * No longer hardcode min/max UIDs.
+    * FreeBSD build fixes.
+    * Fixed Qt 5.5 build warnings.
+    * Honor TryExec in Xsession desktop files.
+    * New sddm.conf option XephyrPath.
+    * New sddm.conf option ServerArguments.
+    * New sddm.conf option DisplayStopCommand.
+    * Enable QT_NO_CAST_FROM_ASCII.
+    * Replace non-free background with a CC-BY-SA alternative for
+      the maldives theme.
+    * Many untracked bug fixes.
+
 ## 0.11.0 - 2014-11-20
 ----------------------
     + Reload the configuration every time we start a new session
@@ -15,7 +75,6 @@
 
 ## 0.10.0 - 2014-10-16
 ----------------------
-
     + Set default icon theme from greeter theme configuration.
     + Set cursor theme according to greeter theme configuration.
     - Never permit a login as the sddm user (CVE-2014-7271)

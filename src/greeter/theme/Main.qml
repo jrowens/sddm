@@ -1,4 +1,5 @@
 /***************************************************************************
+* Copyright (c) 2015 Pier Luigi Fiorini <pierluigi.fiorini@gmail.com>
 * Copyright (c) 2013 Abdurrahman AVCI <abdurrahmanavci@gmail.com
 *
 * Permission is hereby granted, free of charge, to any person
@@ -30,6 +31,9 @@ Rectangle {
     width: 1024
     height: 768
 
+    LayoutMirroring.enabled: Qt.locale().textDirection == Qt.RightToLeft
+    LayoutMirroring.childrenInherit: true
+
     property int sessionIndex: session.index
 
     TextConstants { id: textConstants }
@@ -45,24 +49,28 @@ Rectangle {
         }
     }
 
-    Repeater {
-        model: screenModel
-        Background {
-            x: geometry.x; y: geometry.y; width: geometry.width; height:geometry.height
-            source: config.background
-            fillMode: Image.PreserveAspectCrop
-            onStatusChanged: {
-                if (status == Image.Error && source != config.defaultBackground) {
-                    source = config.defaultBackground
-                }
+    Background {
+        anchors.fill: parent
+        source: config.background
+        fillMode: Image.PreserveAspectCrop
+        onStatusChanged: {
+            if (status == Image.Error && source != config.defaultBackground) {
+                source = config.defaultBackground
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                listView.focus = true;
             }
         }
     }
 
     Rectangle {
-        property variant geometry: screenModel.geometry(screenModel.primary)
-        x: geometry.x; y: geometry.y; width: geometry.width; height: geometry.height
+        anchors.fill: parent
         color: "transparent"
+        //visible: primaryScreen
 
         Component {
             id: userDelegate
@@ -71,6 +79,7 @@ Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 name: (model.realName === "") ? model.name : model.realName
                 icon: model.icon
+                showPassword: model.needsPassword
 
                 focus: (listView.currentIndex === index) ? true : false
                 state: (listView.currentIndex === index) ? "active" : ""
@@ -79,15 +88,17 @@ Rectangle {
 
                 MouseArea {
                     anchors.fill: parent
-                    hoverEnabled: true
-                    onEntered: listView.currentIndex = index
-                    onClicked: listView.focus = true
+                    onClicked: {
+                        listView.currentIndex = index;
+                        listView.focus = true;
+                    }
                 }
             }
         }
 
         Row {
             anchors.fill: parent
+            //visible: primaryScreen
 
             Rectangle {
                 width: parent.width / 2; height: parent.height
@@ -160,9 +171,11 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     color: "white"
                     text: textConstants.promptSelectUser
-
+                    wrapMode: Text.WordWrap
+                    width:parent.width - 60
                     font.pixelSize: 20
                 }
+
             }
         }
 
@@ -171,6 +184,7 @@ Rectangle {
             anchors.top: parent.top;
             anchors.horizontalCenter: parent.horizontalCenter
             width: parent.width; height: 40
+            //visible: primaryScreen
 
             Row {
                 anchors.left: parent.left

@@ -1,4 +1,5 @@
 /***************************************************************************
+* Copyright (c) 2015-2016 Pier Luigi Fiorini <pierluigi.fiorini@gmail.com>
 * Copyright (c) 2013 Abdurrahman AVCI <abdurrahmanavci@gmail.com>
 *
 * This program is free software; you can redistribute it and/or modify
@@ -35,6 +36,7 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QDebug>
+#include <QTimer>
 #include <QTranslator>
 
 #include <iostream>
@@ -48,7 +50,7 @@ namespace SDDM {
 
         QString value = arguments.at(index + 1);
 
-        if (value.startsWith("-") || value.startsWith("--"))
+        if (value.startsWith(QLatin1Char('-')))
             return defaultValue;
 
         return value;
@@ -63,54 +65,51 @@ namespace SDDM {
         // Parse arguments
         bool testing = false;
 
-        if (arguments().contains("--test-mode"))
+        if (arguments().contains(QStringLiteral("--test-mode")))
             testing = true;
 
         // get socket name
-        QString socket = parameter(arguments(), "--socket", "");
+        QString socket = parameter(arguments(), QStringLiteral("--socket"), QString());
 
         // get theme path
-        QString themePath = parameter(arguments(), "--theme", "");
-
-        // create view
-        m_view = new QQuickView();
-        m_view->setResizeMode(QQuickView::SizeRootObjectToView);
-
-        m_view->engine()->addImportPath(IMPORTS_INSTALL_DIR);
+        m_themePath = parameter(arguments(), QStringLiteral("--theme"), QString());
 
         // read theme metadata
-        m_metadata = new ThemeMetadata(QString("%1/metadata.desktop").arg(themePath));
+        m_metadata = new ThemeMetadata(QStringLiteral("%1/metadata.desktop").arg(m_themePath));
 
         // Translations
         // Components translation
         m_components_tranlator = new QTranslator();
-        if (m_components_tranlator->load(QLocale::system(), "", "", COMPONENTS_TRANSLATION_DIR))
+        if (m_components_tranlator->load(QLocale::system(), QString(), QString(), QStringLiteral(COMPONENTS_TRANSLATION_DIR)))
             installTranslator(m_components_tranlator);
 
         // Theme specific translation
         m_theme_translator = new QTranslator();
-        if (m_theme_translator->load(QLocale::system(), "", "",
-                           QString("%1/%2/").arg(themePath, m_metadata->translationsDirectory())))
+        if (m_theme_translator->load(QLocale::system(), QString(), QString(),
+                           QStringLiteral("%1/%2/").arg(m_themePath, m_metadata->translationsDirectory())))
             installTranslator(m_theme_translator);
 
         // get theme config file
-        QString configFile = QString("%1/%2").arg(themePath).arg(m_metadata->configFile());
+        QString configFile = QStringLiteral("%1/%2").arg(m_themePath).arg(m_metadata->configFile());
 
         // read theme config
         m_themeConfig = new ThemeConfig(configFile);
 
         // set default icon theme from greeter theme
-        if (m_themeConfig->contains("iconTheme"))
-            QIcon::setThemeName(m_themeConfig->value("iconTheme").toString());
+        if (m_themeConfig->contains(QStringLiteral("iconTheme")))
+            QIcon::setThemeName(m_themeConfig->value(QStringLiteral("iconTheme")).toString());
 
         // set cursor theme according to greeter theme
-        if (m_themeConfig->contains("cursorTheme"))
-            qputenv("XCURSOR_THEME", m_themeConfig->value("cursorTheme").toString().toUtf8());
+        if (m_themeConfig->contains(QStringLiteral("cursorTheme")))
+            qputenv("XCURSOR_THEME", m_themeConfig->value(QStringLiteral("cursorTheme")).toString().toUtf8());
+
+        // set platform theme
+        if (m_themeConfig->contains(QStringLiteral("platformTheme")))
+            qputenv("QT_QPA_PLATFORMTHEME", m_themeConfig->value(QStringLiteral("platformTheme")).toString().toUtf8());
 
         // create models
 
         m_sessionModel = new SessionModel();
-        m_screenModel = new ScreenModel();
         m_userModel = new UserModel();
         m_proxy = new GreeterProxy(socket);
         m_keyboard = new KeyboardModel();
@@ -130,35 +129,122 @@ namespace SDDM {
 
         m_proxy->setSessionModel(m_sessionModel);
 
+        // create views
+        QList<QScreen *> screens = primaryScreen()->virtualSiblings();
+        Q_FOREACH (QScreen *screen, screens)
+            addViewForScreen(screen);
+
+        // handle screens
+        connect(this, &GreeterApp::screenAdded, this, &GreeterApp::addViewForScreen);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
+        connect(this, &GreeterApp::primaryScreenChanged, this, [this](QScreen *) {
+            activatePrimary();
+        });
+#endif
+    }
+
+    void GreeterApp::addViewForScreen(QScreen *screen) {
+        // create view
+        QQuickView *view = new QQuickView();
+        view->setScreen(screen);
+        view->setResizeMode(QQuickView::SizeRootObjectToView);
+        //view->setGeometry(QRect(QPoint(0, 0), screen->geometry().size()));
+        view->setGeometry(screen->geometry());
+        m_views.append(view);
+
+        // remove the view when the screen is removed, but we
+        // need to be careful here since Qt will move the view to
+        // another screen before this signal is emitted so we
+        // pass a pointer to the view to our slot
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
+        connect(this, &GreeterApp::screenRemoved, this, [view, this](QScreen *) {
+            removeViewForScreen(view);
+        });
+#else
+        connect(view, &QQuickView::screenChanged, this, [view, this](QScreen *screen) {
+            if (screen == Q_NULLPTR)
+                removeViewForScreen(view);
+        });
+#endif
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 4, 0))
+        // always resize when the screen geometry changes
+        connect(screen, &QScreen::geometryChanged, this, [view](const QRect &r) {
+            view->setGeometry(r);
+        });
+#endif
+
+        view->engine()->addImportPath(QStringLiteral(IMPORTS_INSTALL_DIR));
+
         // connect proxy signals
-        QObject::connect(m_proxy, SIGNAL(loginSucceeded()), m_view, SLOT(close()));
+        connect(m_proxy, SIGNAL(loginSucceeded()), view, SLOT(close()));
+
+        // we used to have only one window as big as the virtual desktop,
+        // QML took care of creating an item for each screen by iterating on
+        // the screen model. However we now have a better approach: we create
+        // a view for each screen that compose the virtual desktop and thus
+        // the QML code for each screen is responsible for drawing only its
+        // screen. By doing so we actually make the screen model useless, but
+        // we want to keep it for compatibility reasons, we do however create
+        // one for each view and expose only the screen that the view belongs to
+        // in order to avoid creating items with different sizes.
+        ScreenModel *screenModel = new ScreenModel(screen, view);
 
         // set context properties
-        m_view->rootContext()->setContextProperty("sessionModel", m_sessionModel);
-        m_view->rootContext()->setContextProperty("screenModel", m_screenModel);
-        m_view->rootContext()->setContextProperty("userModel", m_userModel);
-        m_view->rootContext()->setContextProperty("config", *m_themeConfig);
-        m_view->rootContext()->setContextProperty("sddm", m_proxy);
-        m_view->rootContext()->setContextProperty("keyboard", m_keyboard);
+        view->rootContext()->setContextProperty(QStringLiteral("sessionModel"), m_sessionModel);
+        view->rootContext()->setContextProperty(QStringLiteral("screenModel"), screenModel);
+        view->rootContext()->setContextProperty(QStringLiteral("userModel"), m_userModel);
+        view->rootContext()->setContextProperty(QStringLiteral("config"), *m_themeConfig);
+        view->rootContext()->setContextProperty(QStringLiteral("sddm"), m_proxy);
+        view->rootContext()->setContextProperty(QStringLiteral("keyboard"), m_keyboard);
+        view->rootContext()->setContextProperty(QStringLiteral("primaryScreen"), QGuiApplication::primaryScreen() == screen);
 
         // get theme main script
-        QString mainScript = QString("%1/%2").arg(themePath).arg(m_metadata->mainScript());
+        QString mainScript = QStringLiteral("%1/%2").arg(m_themePath).arg(m_metadata->mainScript());
+
+        // load theme from resources when an error has occurred
+        connect(view, &QQuickView::statusChanged, this, [view](QQuickView::Status status) {
+            if (status != QQuickView::Error)
+                return;
+            Q_FOREACH(const QQmlError &e, view->errors())
+                qWarning() << e;
+            view->setSource(QUrl(QStringLiteral("qrc:/theme/Main.qml")));
+        });
 
         // set main script as source
-        m_view->setSource(QUrl::fromLocalFile(mainScript));
+        view->setSource(QUrl::fromLocalFile(mainScript));
 
-        // connect screen update signals
-        connect(m_screenModel, SIGNAL(primaryChanged()), this, SLOT(show()));
+        // show
+        qDebug() << "Adding view for" << screen->name() << screen->geometry();
+        view->show();
 
-        show();
+        // activate windows for the primary screen to give focus to text fields
+        if (QGuiApplication::primaryScreen() == screen)
+            view->requestActivate();
     }
 
-    void GreeterApp::show() {
-        m_view->setGeometry(m_screenModel->geometry());
-        m_view->show();
-        m_view->requestActivate();
+    void GreeterApp::removeViewForScreen(QQuickView *view) {
+        // screen is gone, remove the window
+        m_views.removeOne(view);
+        view->deleteLater();
+
+#if QT_VERSION < QT_VERSION_CHECK(5, 6, 0)
+        // starting from Qt 5.6 we are notified when the primary screen is changed
+        // and we request activation for the view when we get the signal, with
+        // older version we iterate the views and request activation
+        activatePrimary();
+#endif
     }
 
+    void GreeterApp::activatePrimary() {
+        // activate and give focus to the window assigned to the primary screen
+        Q_FOREACH (QQuickView *view, m_views) {
+            if (view->screen() == QGuiApplication::primaryScreen()) {
+                view->requestActivate();
+                break;
+            }
+        }
+    }
 }
 
 int main(int argc, char **argv) {
@@ -168,7 +254,7 @@ int main(int argc, char **argv) {
     QStringList arguments;
 
     for (int i = 0; i < argc; i++)
-        arguments << argv[i];
+        arguments << QString::fromLocal8Bit(argv[i]);
 
     if (arguments.contains(QStringLiteral("--help")) || arguments.contains(QStringLiteral("-h"))) {
         std::cout << "Usage: " << argv[0] << " [options] [arguments]\n"
